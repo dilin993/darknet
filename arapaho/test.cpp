@@ -26,14 +26,17 @@
 #include <chrono>
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "PersonTrack.h"
-#include "hungarian.h"
+//#include "PersonTrack.h"
+//#include "hungarian.h"
+#include "udp_client.h"
 #include<climits>
+#include<ctime>
 
 // Use OpenCV for scaling the image (faster)
 #define _ENABLE_OPENCV_SCALING
 
 using namespace cv;
+using namespace std;
 
 //
 // Some configuration inputs
@@ -69,9 +72,12 @@ int main()
     box* boxes = 0;
     std::string* labels;
     vector<Rect> found, found_filtered;
-    vector<PersonTrack> tracks;
-    vector<vector<int>> costMatrix;
-    double ticks = 0;
+    uint16_t frameCount=0;
+
+//    vector<PersonTrack> tracks;
+//    vector<vector<int>> costMatrix;
+//    double ticks = 0;
+    udp_client::udp_client client1("127.0.0.1",8089);
 
 
     // Early exits
@@ -135,10 +141,6 @@ int main()
     // Detection loop
     while(1)
     {
-      double precTick = ticks;
-      ticks = (double) cv::getTickCount();
-
-      double dT = (ticks - precTick) / cv::getTickFrequency(); //seconds
         int imageWidthPixels = 0, imageHeightPixels = 0;
         bool success = cap.read(image);
         if(!success)
@@ -159,6 +161,24 @@ int main()
         }
         else
         {
+        	// frame variables
+			string frameData = "";
+			time_t t = time(0);
+			struct tm *now = localtime(&t);
+			char buffer[80];
+			strftime(buffer, sizeof(buffer), "%d-%m-%Y %I:%M:%S", now);
+			string timeStr(buffer);
+
+			if (frameCount >= UINT16_MAX)
+				frameCount = 0;
+
+			// frame header
+			frameData += "frame" + to_string(frameCount) + ";";
+			frameData += timeStr + ";";
+			frameCount++;
+
+
+
             imageWidthPixels = image.size().width;
             imageHeightPixels = image.size().height;
             DPRINTF("Image data = %p, w = %d, h = %d\n", image.data, imageWidthPixels, imageHeightPixels);
@@ -263,110 +283,25 @@ int main()
                         found_filtered.push_back(r);
                 }
 
-                costMatrix.clear();
 
-                // update tracks
-                for(int j=0;j<tracks.size();j++)
-                {
-                    tracks[j].predict(dT);
-                }
 
                 for (i=0; i<found_filtered.size(); i++)
                 {
                     Rect r = found_filtered[i];
-                    r.x += cvRound(r.width*0.1);
-                    r.width = cvRound(r.width*0.8);
-                    r.y += cvRound(r.height*0.06);
-                    r.height = cvRound(r.height*0.9);
-                    found_filtered[i] = r;
+//                    r.x += cvRound(r.width*0.1);
+//                    r.width = cvRound(r.width*0.8);
+//                    r.y += cvRound(r.height*0.06);
+//                    r.height = cvRound(r.height*0.9);
+//                    found_filtered[i] = r;
                     rectangle(image, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
-
-                    if(tracks.size()==0) // Initializing Tracks for first detection
-                    {
-                        PersonTrack pt(r);
-                        pt.should_keep(true);
-                        pt.take_measure(r);
-                        tracks.push_back(pt);
-                    }
-                    else // calculate the cost matrix
-                    {
-                        int min_d = INT_MAX;
-                        vector<int> row(tracks.size());
-                        row.clear();
-                        for(int j=0;j<tracks.size();j++)
-                        {
-                            double d = sqrt(pow((double)(r.x-tracks[j].bbox.x),2.0) + pow((double)(r.y-tracks[j].bbox.y),2.0));
-                            int di = cvRound(d);
-                            if(di<min_d)
-                                min_d = di;
-                            row.push_back(di);
-                        }
-                        if(min_d>TRACK_INIT_TH) // initialize new track
-                        {
-                            PersonTrack pt(r);
-                            pt.should_keep(true);
-                            pt.take_measure(r);
-                            tracks.push_back(pt);
-                            double d = sqrt(pow((double)(r.x-pt.bbox.x),2.0) + pow((double)(r.y-pt.bbox.y),2.0));
-                            int di = cvRound(d);
-                            row.push_back(di);
-                        }
-                        costMatrix.push_back(row);
-                    }
-                }
-                if(costMatrix.size()!=0)
-                {
-        //            cout << endl;
-        //            for(int i=0;i<costMatrix.size();i++)
-        //            {
-        //                for(int j=0;j<costMatrix[0].size();j++)
-        //                {
-        //                    cout << costMatrix[i][j] << "\t";
-        //                }
-        //                cout << endl;
-        //            }
-        ////            cout << endl;
-                    Hungarian hungarian(costMatrix,(int)found_filtered.size(),(int)tracks.size(),HUNGARIAN_MODE_MINIMIZE_COST);
-                    hungarian.solve();
-                    vector<vector<int>> assignment = hungarian.assignment();
-                    cout << "cost: " << endl;
-                    hungarian.print_cost();
-                    cout << "assignment: " << endl;
-                    hungarian.print_assignment();
-
-                    for(int j=0;j<tracks.size();j++)
-                    {
-                        bool track_detected = false;
-                        for(int i=0;i<found_filtered.size();i++)
-                        {
-                            if(assignment[i][j]==1)
-                            {
-                                tracks[j].take_measure(found_filtered[i]);
-                                track_detected = true;
-                                break;
-                            }
-                        }
-                        if(!tracks[j].should_keep(track_detected)) // reject track based on rejection criteria
-                        {
-                            tracks.erase(tracks.begin()+j);
-                            j--;
-                        }
-                    }
-
-        //            for(vector<PersonTrack>::iterator i=tracks.begin();i<tracks.end();i++)
-        //            {
-        //                bool track_detected = false;
-        //                for(vector<Rect>:: iterator j=found_filtered.begin();i<found_filtered.end();j++)
-        //                {
-        //
-        //                }
-        //            }
+                    string pos="";
+                    pos += to_string(r.x) + "," +
+                    	   to_string(r.y) + "," +
+						   to_string(r.width) + "," +
+						   to_string(r.height);
+                    frameData += pos + ";";
                 }
 
-                for(int j=0;j<tracks.size();j++)
-                {
-                    rectangle(image, tracks[j].bbox.tl(), tracks[j].bbox.br(), cv::Scalar(255,0,0), 2);
-                }
 
                 if (boxes)
                 {
@@ -380,6 +315,12 @@ int main()
                 }
 
             }// If objects were detected
+
+            // transmit current frame data
+            const char *cstr = frameData.c_str();
+			cout << cstr << endl;
+			client1.send(cstr, frameData.length());
+
             imshow("Arapaho", image);
             waitKey((1000 / TARGET_SHOW_FPS));
 
