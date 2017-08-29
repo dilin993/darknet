@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+
+<configuration>
+    <detector ip="10.8.145.208" port="8089"/>
+</configuration>

@@ -31,6 +31,7 @@
 #include "udp_client.h"
 #include<climits>
 #include<ctime>
+#include "pugixml.hpp"
 
 // Use OpenCV for scaling the image (faster)
 #define _ENABLE_OPENCV_SCALING
@@ -65,7 +66,7 @@ bool fileExists(const char *file)
 //
 // Main test wrapper for arapaho
 //
-int main()
+int main(int argc, const char * argv[])
 {
     bool ret = false;
     int expectedW = 0, expectedH = 0;
@@ -74,10 +75,25 @@ int main()
     vector<Rect> found, found_filtered;
     uint16_t frameCount=0;
 
+    string ip="127.0.0.1";
+    int port=8089;
+
+	if (argc > 1) {
+		pugi::xml_document doc;
+		pugi::xml_parse_result result = doc.load_file(argv[1]);
+		if (result)
+		{
+			pugi::xml_node detectorConfig = doc.child("configuration").child("detector");
+			ip = detectorConfig.attribute("ip").as_string();
+			port = detectorConfig.attribute("port").as_int();
+		}
+	}
+
 //    vector<PersonTrack> tracks;
 //    vector<vector<int>> costMatrix;
 //    double ticks = 0;
-    udp_client::udp_client client1("127.0.0.1",8089);
+    udp_client::udp_client client1(ip.c_str(),port);
+    cout << "connected to " << ip << ":" << port << endl << endl;
 
 
     // Early exits
