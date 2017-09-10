@@ -42,10 +42,10 @@ using namespace std;
 //
 // Some configuration inputs
 //
-static char INPUT_DATA_FILE[]    = "input.data";
-static char INPUT_CFG_FILE[]     = "input.cfg";
-static char INPUT_WEIGHTS_FILE[] = "input.weights";
-static char INPUT_AV_FILE[]      = "input.avi"; //"input.jpg"; //// Can take in either Video or Image file
+char *INPUT_DATA_FILE    = nullptr;//"input.data";
+char *INPUT_CFG_FILE   = nullptr;//"input.cfg";
+char *INPUT_WEIGHTS_FILE = nullptr;//"input.weights";
+char *INPUT_AV_FILE     = nullptr;//"input.avi"; //"input.jpg"; //// Can take in either Video or Image file
 #define MAX_OBJECTS_PER_FRAME (100)
 
 #define TARGET_SHOW_FPS (10)
@@ -63,6 +63,15 @@ bool fileExists(const char *file)
     return (0 == result);
 }
 
+
+void copyToCstr(char * &cstr,string str)
+{
+  delete cstr;
+  cstr = new char [str.length()+1];
+  strcpy (cstr, str.c_str());
+  cout << cstr << endl;
+}
+
 //
 // Main test wrapper for arapaho
 //
@@ -78,7 +87,8 @@ int main(int argc, const char * argv[])
     string ip="127.0.0.1";
     int port=8089;
 
-	if (argc > 1) {
+	if (argc > 1)
+  {
 		pugi::xml_document doc;
 		pugi::xml_parse_result result = doc.load_file(argv[1]);
 		if (result)
@@ -86,8 +96,25 @@ int main(int argc, const char * argv[])
 			pugi::xml_node detectorConfig = doc.child("configuration").child("detector");
 			ip = detectorConfig.attribute("ip").as_string();
 			port = detectorConfig.attribute("port").as_int();
+
+			pugi::xml_node inputConfig = doc.child("configuration").child("input");
+      copyToCstr(INPUT_DATA_FILE,inputConfig.attribute("data").as_string());
+      cout << "INPUT_DATA_FILE: " << INPUT_DATA_FILE << endl;
+      copyToCstr(INPUT_CFG_FILE,inputConfig.attribute("cfg").as_string());
+      //cout << "INPUT_CFG_FILE: " << INPUT_CFG_FILE << endl;
+      copyToCstr(INPUT_WEIGHTS_FILE,inputConfig.attribute("weights").as_string());
+      //cout << "IINPUT_WEIGHTS_FILE: " << INPUT_WEIGHTS_FILE << endl;
+      copyToCstr(INPUT_AV_FILE,inputConfig.attribute("video").as_string());
+      //cout << "INPUT_AV_FILE: " << INPUT_AV_FILE << endl;
 		}
+
 	}
+  else
+  {
+    cout << "darknet: Please specify configuration file." << endl;
+    cout << "\tusage: ./darknet <configuration file>" << endl;
+    return -1;
+  }
 
 //    vector<PersonTrack> tracks;
 //    vector<vector<int>> costMatrix;

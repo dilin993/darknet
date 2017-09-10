@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 
 <configuration>
-    <detector ip="10.8.145.208" port="8089"/>
+    <detector ip="10.10.21.195" port="8089"/>
+    <input data="input.data" weights="input.weights" cfg="input.cfg" video="/home/dilin/people_videos/4p-c0.avi"/>
 </configuration>
